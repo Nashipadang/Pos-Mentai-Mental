@@ -1,0 +1,59 @@
+# ── OS & Editor ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+
+# ── Dokumen Internal (tidak di-push ke repo) ─────────────────
+prd.md
+brief.md
+README.md
+*.md
+!frontend/README.md
+
+# ── Secret & Environment Variables ───────────────────────────
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env.local
+!backend/.env.example
+!frontend/.env.example
+
+# ── Go ────────────────────────────────────────────────────────
+backend/vendor/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+backend/server
+backend/tmp/
+
+# Swagger generated docs (akan di-generate ulang via `swag init`)
+backend/docs/
+
+# ── Node / Frontend ───────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.cache/
+frontend/coverage/
+
+# ── Docker ───────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Migration binaries ────────────────────────────────────────
+migrate
+
+# ── Agents & AI tools ─────────────────────────────────────────
+.agents/
