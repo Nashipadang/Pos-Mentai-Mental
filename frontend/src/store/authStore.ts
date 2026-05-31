@@ -1,9 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import api from '../lib/api'
 
 export type UserRole = 'owner' | 'kasir' | 'staff'
 
-interface AuthUser {
+export interface AuthUser {
   id: string
   name: string
   email: string
@@ -14,8 +15,8 @@ interface AuthState {
   user: AuthUser | null
   accessToken: string | null
   isAuthenticated: boolean
-  login: (user: AuthUser, accessToken: string, refreshToken: string) => void
-  logout: () => void
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  logout: () => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -25,16 +26,32 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       isAuthenticated: false,
 
-      login: (user, accessToken, refreshToken) => {
-        localStorage.setItem('access_token', accessToken)
-        localStorage.setItem('refresh_token', refreshToken)
-        set({ user, accessToken, isAuthenticated: true })
+      login: async (email, password) => {
+        try {
+          const resp = await api.post('/auth/login', { email, password })
+          const { access_token, refresh_token, user } = resp.data.data
+          
+          localStorage.setItem('access_token', access_token)
+          localStorage.setItem('refresh_token', refresh_token)
+          
+          set({ user, accessToken: access_token, isAuthenticated: true })
+          return { success: true }
+        } catch (err: any) {
+          const msg = err.response?.data?.message || 'Email atau password salah'
+          return { success: false, error: msg }
+        }
       },
 
-      logout: () => {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        set({ user: null, accessToken: null, isAuthenticated: false })
+      logout: async () => {
+        try {
+          await api.post('/auth/logout')
+        } catch (e) {
+          console.error("Gagal blacklist token di backend saat logout:", e)
+        } finally {
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('refresh_token')
+          set({ user: null, accessToken: null, isAuthenticated: false })
+        }
       },
     }),
     {

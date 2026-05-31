@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -31,6 +32,9 @@ import (
 
 	_ "github.com/mentaimental/pos-backend/docs" // swagger docs auto-generated
 	"github.com/mentaimental/pos-backend/internal/config"
+	"github.com/mentaimental/pos-backend/internal/handler"
+	"github.com/mentaimental/pos-backend/internal/middleware"
+	"github.com/mentaimental/pos-backend/internal/repository"
 )
 
 func main() {
@@ -39,7 +43,7 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Connect to PostgreSQL (Supabase)
+	// Connect to PostgreSQL
 	db, err := sql.Open("postgres", config.App.DSN())
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -49,7 +53,10 @@ func main() {
 	if err := db.Ping(); err != nil {
 		log.Fatalf("Database ping failed: %v", err)
 	}
-	log.Println("✅ Connected to PostgreSQL (Supabase)")
+	log.Println("✅ Connected to PostgreSQL Database")
+
+	// Execute migrations
+	runMigrations(db)
 
 	// Setup Gin
 	if config.App.AppEnv == "production" {
@@ -58,7 +65,7 @@ func main() {
 
 	r := gin.Default()
 
-	// CORS
+	// CORS Setup
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{config.App.CORSAllowedOrigins},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -78,16 +85,41 @@ func main() {
 		c.JSON(200, gin.H{"status": "ok", "env": config.App.AppEnv})
 	})
 
+	// Initialize database connection for middleware
+	middleware.InitDB(db)
+
+	// Instantiate repositories
+	userRepo := repository.NewUserRepository(db)
+	productRepo := repository.NewProductRepository(db)
+	ingredientRepo := repository.NewIngredientRepository(db)
+	recipeRepo := repository.NewRecipeRepository(db)
+	customerRepo := repository.NewCustomerRepository(db)
+	movementRepo := repository.NewStockMovementRepository(db)
+	transactionRepo := repository.NewTransactionRepository(db)
+
+	// Instantiate handlers
+	authHandler := handler.NewAuthHandler(userRepo, db)
+	userHandler := handler.NewUserHandler(userRepo)
+	productHandler := handler.NewProductHandler(productRepo)
+	inventoryHandler := handler.NewInventoryHandler(ingredientRepo, movementRepo)
+	recipeHandler := handler.NewRecipeHandler(recipeRepo)
+	customerHandler := handler.NewCustomerHandler(customerRepo)
+	transactionHandler := handler.NewTransactionHandler(transactionRepo, productRepo)
+	analyticsHandler := handler.NewAnalyticsHandler(transactionRepo, ingredientRepo, db)
+	settingsHandler := handler.NewSettingsHandler(db)
+
 	// API routes v1
 	v1 := r.Group("/api/v1")
 	{
-		// TODO: Register handlers here
-		// auth.RegisterRoutes(v1, db)
-		// product.RegisterRoutes(v1, db)
-		// inventory.RegisterRoutes(v1, db)
-		// transaction.RegisterRoutes(v1, db)
-		// analytics.RegisterRoutes(v1, db)
-		_ = v1 // placeholder
+		authHandler.RegisterRoutes(v1)
+		userHandler.RegisterRoutes(v1)
+		productHandler.RegisterRoutes(v1)
+		inventoryHandler.RegisterRoutes(v1)
+		recipeHandler.RegisterRoutes(v1)
+		customerHandler.RegisterRoutes(v1)
+		transactionHandler.RegisterRoutes(v1)
+		analyticsHandler.RegisterRoutes(v1)
+		settingsHandler.RegisterRoutes(v1)
 	}
 
 	addr := fmt.Sprintf(":%s", config.App.AppPort)
@@ -95,4 +127,37 @@ func main() {
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
+}
+
+func runMigrations(db *sql.DB) {
+	log.Println("🔄 Running database migrations...")
+
+	// Try multiple relative paths to locate migration file
+	paths := []string{
+		"migrations/0001_create_schema.up.sql",
+		"../migrations/0001_create_schema.up.sql",
+		"../../migrations/0001_create_schema.up.sql",
+	}
+
+	var content []byte
+	var err error
+	for _, p := range paths {
+		content, err = os.ReadFile(p)
+		if err == nil {
+			log.Printf("Found migration file at: %s", p)
+			break
+		}
+	}
+
+	if err != nil {
+		log.Printf("⚠️ Warning: migration file not found: %v", err)
+		return
+	}
+
+	// Execute migrations content
+	_, err = db.Exec(string(content))
+	if err != nil {
+		log.Fatalf("❌ Migration failed: %v", err)
+	}
+	log.Println("✅ Database migrations executed successfully")
 }

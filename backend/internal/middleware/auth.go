@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"database/sql"
 	"net/http"
 	"strings"
 
@@ -9,6 +10,13 @@ import (
 	"github.com/mentaimental/pos-backend/internal/config"
 	"github.com/mentaimental/pos-backend/internal/model"
 )
+
+var dbConn *sql.DB
+
+// InitDB initializes database connection reference for middleware usage
+func InitDB(db *sql.DB) {
+	dbConn = db
+}
 
 type Claims struct {
 	UserID string     `json:"user_id"`
@@ -30,6 +38,20 @@ func AuthRequired() gin.HandlerFunc {
 		}
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+
+		// Check token blacklist
+		if dbConn != nil {
+			var exists bool
+			err := dbConn.QueryRow("SELECT EXISTS(SELECT 1 FROM token_blacklist WHERE token = $1)", tokenStr).Scan(&exists)
+			if err == nil && exists {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"status":  "error",
+					"message": "Token sudah tidak berlaku (silakan login kembali)",
+				})
+				return
+			}
+		}
+
 		claims := &Claims{}
 
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {

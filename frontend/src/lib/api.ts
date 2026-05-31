@@ -29,4 +29,18 @@ api.interceptors.response.use(
   }
 )
 
+export const formatTxId = (id: string) => {
+  if (!id) return ''
+  // Format check: YYYYMMDD-HHMM-SS00-0000-XXXXXXXXXXXX
+  if (/^\d{8}-\d{4}-\d{4}-0000-[a-f0-9]{12}$/i.test(id)) {
+    const parts = id.split('-')
+    const date = parts[0] // 20260601
+    const time = parts[1] // 1632
+    const random = parts[4].slice(0, 4) // first 4 chars of the random hex
+    return `TX-${date.slice(2)}-${time}-${random}` // e.g. TX-260601-1632-a1b2
+  }
+  // Fallback
+  return id.length > 8 ? `TX-${id.slice(0, 8).toUpperCase()}` : id
+}
+
 export default api
