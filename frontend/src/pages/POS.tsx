@@ -16,7 +16,8 @@ import {
   Flame,
   CreditCard,
   Banknote,
-  ShoppingCart
+  ShoppingCart,
+  UtensilsCrossed
 } from 'lucide-react'
 import { PaymentMethod } from '../types'
 import CustomSelect from '../components/ui/CustomSelect'
@@ -43,6 +44,7 @@ export default function POS() {
 
   // State
   const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab] = useState<'menu' | 'cart'>('menu')
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
   const [cart, setCart] = useState<CartItem[]>([])
   
@@ -449,29 +451,27 @@ export default function POS() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 relative">
+    <div className="flex flex-col lg:flex-row gap-4 xl:gap-6 relative w-full overflow-hidden">
       {/* LEFT: Product catalog */}
-      <div className="flex-1 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-display font-bold text-[hsl(var(--foreground))] tracking-tight">
-              Kasir POS
-            </h2>
-            <p className="text-sm font-medium text-[hsl(var(--muted-foreground))] font-sans">
-              Pilih menu dimsum mentai lezat untuk pelanggan
-            </p>
-          </div>
+      <div className="flex-1 space-y-4 min-w-0">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-display font-bold text-[hsl(var(--foreground))] tracking-tight">
+            Kasir POS
+          </h2>
+          <p className="text-xs md:text-sm font-medium text-[hsl(var(--muted-foreground))] font-sans">
+            Pilih menu dimsum mentai lezat untuk pelanggan
+          </p>
+        </div>
 
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-3.5 top-3 w-5 h-5 text-[hsl(var(--muted-foreground))]" />
-            <input
-              type="text"
-              placeholder="Cari nama menu..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 rounded-2xl border border-[hsl(var(--border))] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))] transition"
-            />
-          </div>
+        <div className="relative w-full max-w-md">
+          <Search className="absolute left-3.5 top-3 w-5 h-5 text-[hsl(var(--muted-foreground))]" />
+          <input
+            type="text"
+            placeholder="Cari nama menu..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-11 pr-4 py-2.5 rounded-2xl border border-[hsl(var(--border))] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))] transition shadow-xs"
+          />
         </div>
 
         {/* Category Tabs */}
@@ -509,7 +509,7 @@ export default function POS() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
             {filteredProducts.map((prod) => {
               const stock = productStocks[prod.id] ?? 0
               const isOutOfStock = stock <= 0
@@ -517,45 +517,45 @@ export default function POS() {
                 <div 
                   key={prod.id} 
                   onClick={() => !isOutOfStock && addToCart(prod.id)}
-                  className={`bg-white rounded-3xl border p-5 transition-all select-none flex flex-col justify-between cursor-pointer border-[hsl(var(--border))] ${
+                  className={`bg-white rounded-2xl border p-3 md:p-3.5 transition-all select-none flex flex-col justify-between cursor-pointer border-[hsl(var(--border))] ${
                     isOutOfStock 
                       ? 'opacity-60 cursor-not-allowed bg-stone-50 border-stone-200' 
-                      : 'hover:shadow-lg hover:border-[hsl(var(--primary))]/30 hover-card-lift'
+                      : 'hover:shadow-md hover:border-[hsl(var(--primary))]/30 hover-card-lift'
                   }`}
                 >
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-start gap-2">
-                      <span className="inline-block text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))] border border-[hsl(var(--primary))]/10">
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap justify-between items-start gap-1">
+                      <span className="inline-block text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))] border border-[hsl(var(--primary))]/5">
                         {categories.find(c => c.id === prod.category_id)?.name || 'Tanpa Kategori'}
                       </span>
-                      <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
+                      <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
                         isOutOfStock 
                           ? 'bg-red-50 text-red-600 border border-red-100' 
                           : stock <= 5 
                           ? 'bg-amber-50 text-amber-600 border border-amber-100 animate-pulse' 
                           : 'bg-green-50 text-green-700 border border-green-100'
                       }`}>
-                        {isOutOfStock ? 'Habis' : `Sisa: ${stock} porsi`}
+                        {isOutOfStock ? 'Habis' : `Sisa: ${stock}`}
                       </span>
                     </div>
-                    <h3 className="font-display font-bold text-base text-[hsl(var(--foreground))] leading-tight">
+                    <h3 className="font-display font-bold text-xs md:text-sm text-[hsl(var(--foreground))] leading-tight">
                       {prod.name}
                     </h3>
                   </div>
 
-                  <div className="flex items-center justify-between mt-5 pt-3 border-t border-[hsl(var(--border))]/50">
-                    <span className="font-sans font-extrabold text-base text-[hsl(var(--foreground))]">
+                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-[hsl(var(--border))]/40">
+                    <span className="font-sans font-black text-xs md:text-sm text-[hsl(var(--foreground))]">
                       {formatIDR(prod.price)}
                     </span>
                     <button
                       disabled={isOutOfStock}
-                      className={`w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-sm transition ${
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center text-white shadow-xs transition ${
                         isOutOfStock 
                           ? 'bg-stone-300' 
                           : 'bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90'
                       }`}
                     >
-                      <Plus className="w-5 h-5" />
+                      <Plus className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -566,10 +566,10 @@ export default function POS() {
       </div>
 
       {/* RIGHT: Shopping Cart sidebar */}
-      <div className="w-full lg:w-96 shrink-0 bg-white rounded-3xl border border-[hsl(var(--border))] p-6 space-y-6 lg:sticky lg:top-8 h-fit shadow-sm">
-        <div className="flex items-center justify-between border-b border-[hsl(var(--border))]/60 pb-3">
-          <h3 className="font-display font-bold text-lg text-[hsl(var(--foreground))] flex items-center gap-2">
-            <ShoppingCart className="w-5 h-5 text-[hsl(var(--primary))]" />
+      <div className="w-full lg:w-80 shrink-0 bg-white rounded-2xl border border-[hsl(var(--border))] p-4 md:p-5 space-y-4 lg:sticky lg:top-8 h-fit shadow-sm">
+        <div className="flex items-center justify-between border-b border-[hsl(var(--border))]/60 pb-2">
+          <h3 className="font-display font-bold text-base text-[hsl(var(--foreground))] flex items-center gap-1.5">
+            <ShoppingCart className="w-4.5 h-4.5 text-[hsl(var(--primary))]" />
             Keranjang Belanja
           </h3>
           {cart.length > 0 && (

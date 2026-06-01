@@ -35,10 +35,10 @@ export default function Navbar() {
     { to: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['owner'] },
     { to: '/pos', label: 'Kasir POS', icon: ShoppingCart, roles: ['owner', 'kasir'] },
     { to: '/transactions', label: 'Transaksi', icon: Receipt, roles: ['owner', 'kasir'] },
+    { to: '/customers', label: 'Pelanggan', icon: Users, roles: ['owner', 'kasir'] },
     { to: '/products', label: 'Menu & Resep', icon: UtensilsCrossed, roles: ['owner'] },
     { to: '/categories', label: 'Kategori Menu', icon: Tags, roles: ['owner'] },
     { to: '/inventory', label: 'Bahan Baku', icon: Package, roles: ['owner', 'staff'] },
-    { to: '/customers', label: 'Pelanggan', icon: Users, roles: ['owner', 'kasir'] },
     { to: '/analytics', label: 'Analytics', icon: BarChart3, roles: ['owner'] },
     { to: '/settings', label: 'Pengaturan', icon: Sliders, roles: ['owner'] },
   ]
