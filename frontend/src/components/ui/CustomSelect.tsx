@@ -13,6 +13,8 @@ interface CustomSelectProps {
   placeholder?: string
   className?: string
   icon?: React.ReactNode
+  searchable?: boolean
+  searchPlaceholder?: string
 }
 
 export default function CustomSelect({ 
@@ -21,9 +23,12 @@ export default function CustomSelect({
   onChange, 
   placeholder = 'Pilih...', 
   className = '',
-  icon
+  icon,
+  searchable = false,
+  searchPlaceholder = 'Cari...'
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
 
   const selectedOption = options.find(o => String(o.value) === String(value))
@@ -38,6 +43,18 @@ export default function CustomSelect({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Reset search query when dropdown closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery('')
+    }
+  }, [isOpen])
+
+  // Filter options based on search query
+  const filteredOptions = options.filter(option =>
+    option.label.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
@@ -56,30 +73,45 @@ export default function CustomSelect({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1.5 bg-white border border-[hsl(var(--border))] rounded-2xl shadow-xl max-h-60 overflow-y-auto font-sans py-1.5 animate-fade-in origin-top">
-          {options.length === 0 ? (
-            <div className="px-4 py-3 text-xs text-[hsl(var(--muted-foreground))] font-semibold">
-              Tidak ada pilihan tersedia
+        <div className="absolute z-50 w-full mt-1.5 bg-white border border-[hsl(var(--border))] rounded-2xl shadow-xl flex flex-col max-h-60 overflow-hidden font-sans py-1.5 animate-fade-in origin-top">
+          {searchable && (
+            <div className="px-3 py-2 border-b border-[hsl(var(--border))]/40 bg-stone-50">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="w-full px-3 py-1.5 border border-[hsl(var(--border))] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] bg-white font-semibold text-[hsl(var(--foreground))]"
+                onClick={(e) => e.stopPropagation()} // Prevent click from triggering button actions
+              />
             </div>
-          ) : (
-            options.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  onChange(option.value)
-                  setIsOpen(false)
-                }}
-                className={`w-full text-left px-4 py-2.5 text-xs font-semibold transition hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))] ${
-                  String(option.value) === String(value) 
-                    ? 'bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]' 
-                    : 'text-[hsl(var(--foreground))]'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))
           )}
+
+          <div className="overflow-y-auto flex-1">
+            {filteredOptions.length === 0 ? (
+              <div className="px-4 py-3 text-xs text-[hsl(var(--muted-foreground))] font-semibold">
+                Tidak ada hasil ditemukan
+              </div>
+            ) : (
+              filteredOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.value)
+                    setIsOpen(false)
+                  }}
+                  className={`w-full text-left px-4 py-2.5 text-xs font-semibold transition hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))] ${
+                    String(option.value) === String(value) 
+                      ? 'bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]' 
+                      : 'text-[hsl(var(--foreground))]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>

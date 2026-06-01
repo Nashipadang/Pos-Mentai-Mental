@@ -3,7 +3,7 @@ import api from '../lib/api'
 import { useAuthStore } from './authStore'
 import { 
   Product, Category, Ingredient, RecipeItem, Customer, 
-  Transaction, PaymentMethod, TransactionStatus, PaymentStatus, User
+  Transaction, PaymentMethod, TransactionStatus, PaymentStatus, User, Promo
 } from '../types'
 
 interface POSState {
@@ -14,6 +14,7 @@ interface POSState {
   customers: Customer[]
   transactions: Transaction[]
   users: User[]
+  promos: Promo[]
   settings: Record<string, string>
   
   // Actions
@@ -47,6 +48,7 @@ interface POSState {
     status?: TransactionStatus
     items: { product_id: string; quantity: number }[]
     user_id: string
+    promo_code?: string
   }) => Promise<{ success: boolean; error?: string; transaction?: Transaction; snap_token?: string; snap_redirect_url?: string }>
   cancelTransaction: (id: string) => Promise<void>
   
@@ -54,6 +56,20 @@ interface POSState {
   addUser: (user: Omit<User, 'id' | 'created_at'> & { password?: string }) => Promise<void>
   updateUser: (id: string, updates: Partial<User> & { password?: string }) => Promise<void>
   deleteUser: (id: string) => Promise<void>
+  checkPromoCode: (code: string, totalAmount: number) => Promise<{
+    valid: boolean
+    message: string
+    discount_amount: number
+    final_amount: number
+    type?: string
+    value?: number
+  }>
+
+  // Promo Management actions
+  fetchPromos: () => Promise<void>
+  addPromo: (promo: Omit<Promo, 'id' | 'created_at'>) => Promise<void>
+  updatePromo: (id: string, updates: Partial<Promo>) => Promise<void>
+  deletePromo: (id: string) => Promise<void>
 }
 
 export const usePOSStore = create<POSState>()((set, get) => ({
@@ -64,6 +80,7 @@ export const usePOSStore = create<POSState>()((set, get) => ({
   customers: [],
   transactions: [],
   users: [],
+  promos: [],
   settings: {},
 
   fetchInitialData: async () => {
@@ -332,6 +349,65 @@ export const usePOSStore = create<POSState>()((set, get) => ({
       await get().fetchSettings()
     } catch (err) {
       console.error("Gagal mengupdate pengaturan:", err)
+      throw err
+    }
+  },
+
+  checkPromoCode: async (code: string, totalAmount: number) => {
+    try {
+      const resp = await api.post('/promos/check', { code, total_amount: totalAmount })
+      return resp.data.data
+    } catch (err) {
+      console.error("Gagal memvalidasi kode promo:", err)
+      return { valid: false, message: "Gagal memproses kode promo di server" }
+    }
+  },
+
+  fetchPromos: async () => {
+    try {
+      const resp = await api.get('/promos/all')
+      set({ promos: resp.data.data || [] })
+    } catch (err) {
+      console.error("Gagal mengambil daftar voucher:", err)
+    }
+  },
+
+  addPromo: async (promo) => {
+    try {
+      await api.post('/promos', promo)
+      await get().fetchPromos()
+    } catch (err) {
+      console.error("Gagal menambah voucher baru:", err)
+      throw err
+    }
+  },
+
+  updatePromo: async (id, updates) => {
+    try {
+      const existing = get().promos.find(p => p.id === id)
+      const payload = {
+        code: existing?.code,
+        type: existing?.type,
+        value: existing?.value,
+        min_transaction: existing?.min_transaction,
+        max_discount: existing?.max_discount,
+        is_active: existing?.is_active,
+        ...updates
+      }
+      await api.put(`/promos/${id}`, payload)
+      await get().fetchPromos()
+    } catch (err) {
+      console.error("Gagal mengupdate voucher:", err)
+      throw err
+    }
+  },
+
+  deletePromo: async (id) => {
+    try {
+      await api.delete(`/promos/${id}`)
+      await get().fetchPromos()
+    } catch (err) {
+      console.error("Gagal menghapus voucher:", err)
       throw err
     }
   }

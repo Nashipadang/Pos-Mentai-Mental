@@ -187,3 +187,27 @@ INSERT INTO settings (key, value) VALUES
 ('receipt_header', 'MENTAI MENTAL'),
 ('receipt_footer', 'Terima kasih atas pesanan Anda!\nMentai Mental - Dimsum Mentai Juara')
 ON CONFLICT (key) DO NOTHING;
+
+-- ── 12. PROMOS ───────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS promos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(100) NOT NULL UNIQUE,
+    type VARCHAR(50) NOT NULL CHECK(type IN ('percentage', 'flat')),
+    value DECIMAL(15,2) NOT NULL CHECK(value >= 0),
+    min_transaction DECIMAL(15,2) NOT NULL DEFAULT 0 CHECK(min_transaction >= 0),
+    max_discount DECIMAL(15,2),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE promos ADD COLUMN IF NOT EXISTS max_discount DECIMAL(15,2);
+
+-- Alter transactions table to support coupon/promos
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS promo_code VARCHAR(100);
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(15,2) DEFAULT 0;
+
+-- Seed default promo codes
+INSERT INTO promos (code, type, value, min_transaction, max_discount, is_active) VALUES
+('MENTAIPAS', 'percentage', 10.00, 50000.00, 15000.00, true), -- 10% off (min Rp 50.000, capped at Rp 15.000)
+('MENTAIHEBAT', 'flat', 5000.00, 30000.00, NULL, true)      -- Rp 5.000 off (min Rp 30.000)
+ON CONFLICT (code) DO NOTHING;

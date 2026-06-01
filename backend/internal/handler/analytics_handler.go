@@ -357,6 +357,17 @@ type PaymentMethodItem struct {
 }
 
 // GetPaymentMethods returns sales breakdown by payment method
+// @Summary      Get Payment Methods Analytics
+// @Description  Get sales total and transaction counts grouped by payment method
+// @Tags         analytics
+// @Security     BearerAuth
+// @Param        days query int false "Number of days (default 30)"
+// @Param        start_date query string false "Start date YYYY-MM-DD"
+// @Param        end_date query string false "End date YYYY-MM-DD"
+// @Produce      json
+// @Success      200 {object} Response{data=[]PaymentMethodItem}
+// @Failure      500 {object} Response
+// @Router       /analytics/payment-methods [get]
 func (h *AnalyticsHandler) GetPaymentMethods(c *gin.Context) {
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
@@ -420,6 +431,17 @@ type CategorySalesItem struct {
 }
 
 // GetCategorySales returns sales breakdown by product category
+// @Summary      Get Category Sales Analytics
+// @Description  Get sales total and quantity sold grouped by product category
+// @Tags         analytics
+// @Security     BearerAuth
+// @Param        days query int false "Number of days (default 30)"
+// @Param        start_date query string false "Start date YYYY-MM-DD"
+// @Param        end_date query string false "End date YYYY-MM-DD"
+// @Produce      json
+// @Success      200 {object} Response{data=[]CategorySalesItem}
+// @Failure      500 {object} Response
+// @Router       /analytics/category-sales [get]
 func (h *AnalyticsHandler) GetCategorySales(c *gin.Context) {
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")

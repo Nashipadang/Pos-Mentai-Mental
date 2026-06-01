@@ -57,3 +57,7 @@ migrate
 
 # ── Agents & AI tools ─────────────────────────────────────────
 .agents/
+
+# ── WhatsApp Gateway ──────────────────────────────────────────
+whatsapp-gateway/node_modules/
+whatsapp-gateway/auth_info_baileys/

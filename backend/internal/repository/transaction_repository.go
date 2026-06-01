@@ -21,6 +21,7 @@ type TransactionRepository interface {
 	UpdatePaymentStatus(id uuid.UUID, paymentStatus model.PaymentStatus, txStatus model.TransactionStatus) error
 	GetAnalyticsOverview() (map[string]interface{}, error)
 	GetSalesTrend(days int) ([]map[string]interface{}, error)
+	GetTodayCount() (int, error)
 }
 
 type pgTransactionRepository struct {
@@ -39,13 +40,13 @@ func (r *pgTransactionRepository) Create(t *model.Transaction) error {
 	defer tx.Rollback()
 
 	if t.ID == uuid.Nil {
-		t.ID = GenerateReadableUUID()
+		t.ID = GenerateReadableUUID(1)
 	}
 
 	// 1. Insert transaction record
-	queryTx := `INSERT INTO transactions (id, user_id, customer_id, total_amount, payment_method, payment_status, midtrans_order_id, midtrans_token, status, created_at)
-	            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING created_at`
-	err = tx.QueryRow(queryTx, t.ID, t.UserID, t.CustomerID, t.TotalAmount, t.PaymentMethod, t.PaymentStatus, t.MidtransOrderID, t.MidtransToken, t.Status).Scan(&t.CreatedAt)
+	queryTx := `INSERT INTO transactions (id, user_id, customer_id, total_amount, payment_method, payment_status, midtrans_order_id, midtrans_token, status, promo_code, discount_amount, created_at)
+	            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()) RETURNING created_at`
+	err = tx.QueryRow(queryTx, t.ID, t.UserID, t.CustomerID, t.TotalAmount, t.PaymentMethod, t.PaymentStatus, t.MidtransOrderID, t.MidtransToken, t.Status, t.PromoCode, t.DiscountAmount).Scan(&t.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -128,12 +129,12 @@ func (r *pgTransactionRepository) Create(t *model.Transaction) error {
 }
 
 func (r *pgTransactionRepository) GetByID(id uuid.UUID) (*model.Transaction, error) {
-	query := `SELECT id, user_id, customer_id, total_amount, payment_method, payment_status, midtrans_order_id, midtrans_token, status, created_at 
+	query := `SELECT id, user_id, customer_id, total_amount, payment_method, payment_status, midtrans_order_id, midtrans_token, status, promo_code, discount_amount, created_at 
 	          FROM transactions WHERE id = $1`
 	var t model.Transaction
 	var custID uuid.NullUUID
-	var orderID, token sql.NullString
-	err := r.db.QueryRow(query, id).Scan(&t.ID, &t.UserID, &custID, &t.TotalAmount, &t.PaymentMethod, &t.PaymentStatus, &orderID, &token, &t.Status, &t.CreatedAt)
+	var orderID, token, promoCode sql.NullString
+	err := r.db.QueryRow(query, id).Scan(&t.ID, &t.UserID, &custID, &t.TotalAmount, &t.PaymentMethod, &t.PaymentStatus, &orderID, &token, &t.Status, &promoCode, &t.DiscountAmount, &t.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -148,6 +149,9 @@ func (r *pgTransactionRepository) GetByID(id uuid.UUID) (*model.Transaction, err
 	}
 	if token.Valid {
 		t.MidtransToken = &token.String
+	}
+	if promoCode.Valid {
+		t.PromoCode = &promoCode.String
 	}
 
 	// Fetch associated items
@@ -187,7 +191,7 @@ func (r *pgTransactionRepository) GetByID(id uuid.UUID) (*model.Transaction, err
 }
 
 func (r *pgTransactionRepository) GetAll() ([]model.Transaction, error) {
-	query := `SELECT id, user_id, customer_id, total_amount, payment_method, payment_status, midtrans_order_id, midtrans_token, status, created_at 
+	query := `SELECT id, user_id, customer_id, total_amount, payment_method, payment_status, midtrans_order_id, midtrans_token, status, promo_code, discount_amount, created_at 
 	          FROM transactions ORDER BY created_at DESC`
 	rows, err := r.db.Query(query)
 	if err != nil {
@@ -199,8 +203,8 @@ func (r *pgTransactionRepository) GetAll() ([]model.Transaction, error) {
 	for rows.Next() {
 		var t model.Transaction
 		var custID uuid.NullUUID
-		var orderID, token sql.NullString
-		err := rows.Scan(&t.ID, &t.UserID, &custID, &t.TotalAmount, &t.PaymentMethod, &t.PaymentStatus, &orderID, &token, &t.Status, &t.CreatedAt)
+		var orderID, token, promoCode sql.NullString
+		err := rows.Scan(&t.ID, &t.UserID, &custID, &t.TotalAmount, &t.PaymentMethod, &t.PaymentStatus, &orderID, &token, &t.Status, &promoCode, &t.DiscountAmount, &t.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -212,6 +216,9 @@ func (r *pgTransactionRepository) GetAll() ([]model.Transaction, error) {
 		}
 		if token.Valid {
 			t.MidtransToken = &token.String
+		}
+		if promoCode.Valid {
+			t.PromoCode = &promoCode.String
 		}
 		transactions = append(transactions, t)
 	}
@@ -451,11 +458,14 @@ func (r *pgTransactionRepository) GetSalesTrend(days int) ([]map[string]interfac
 	return trends, nil
 }
 
-func GenerateReadableUUID() uuid.UUID {
+func GenerateReadableUUID(sequence int) uuid.UUID {
 	now := time.Now().Local()
-	datePart := now.Format("20060102") // YYYYMMDD
-	timePart := now.Format("1504")     // HHMM
-	secPart := now.Format("05") + "00"  // SS00
+	dayStr := now.Format("02")
+	monthStr := now.Format("01")
+	yearStr := now.Format("2006")
+	
+	datePart := dayStr + monthStr + yearStr  // DDMMYYYY
+	seqPart := fmt.Sprintf("%04d", sequence) // 4-digit sequence (e.g. 0001)
 
 	// Generate 6 random bytes (12 hex characters)
 	bytes := make([]byte, 6)
@@ -467,9 +477,26 @@ func GenerateReadableUUID() uuid.UUID {
 		suffix = hex.EncodeToString(bytes)
 	}
 
-	uuidStr := fmt.Sprintf("%s-%s-%s-0000-%s", datePart, timePart, secPart, suffix)
+	uuidStr := fmt.Sprintf("%s-%s-0000-0000-%s", datePart, seqPart, suffix)
 	parsed, err := uuid.Parse(uuidStr)
+	if err != nil {
+		return uuid.New()
+	}
 	return parsed
+}
+
+func (r *pgTransactionRepository) GetTodayCount() (int, error) {
+	now := time.Now().Local()
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	endOfToday := startOfToday.Add(24 * time.Hour)
+
+	var count int
+	query := `SELECT COUNT(*) FROM transactions WHERE created_at >= $1 AND created_at < $2`
+	err := r.db.QueryRow(query, startOfToday, endOfToday).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (r *pgTransactionRepository) GetPaginated(page, limit int, search string, status string, paymentMethod string, startDate, endDate string) ([]model.Transaction, int64, error) {
@@ -527,7 +554,7 @@ func (r *pgTransactionRepository) GetPaginated(page, limit int, search string, s
 		return nil, 0, err
 	}
 
-	query := fmt.Sprintf(`SELECT id, user_id, customer_id, total_amount, payment_method, payment_status, midtrans_order_id, midtrans_token, status, created_at 
+	query := fmt.Sprintf(`SELECT id, user_id, customer_id, total_amount, payment_method, payment_status, midtrans_order_id, midtrans_token, status, promo_code, discount_amount, created_at 
 	                      FROM transactions %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, whereClause, argIndex, argIndex+1)
 	
 	queryArgs := append(args, limit, offset)
@@ -541,8 +568,8 @@ func (r *pgTransactionRepository) GetPaginated(page, limit int, search string, s
 	for rows.Next() {
 		var t model.Transaction
 		var custID uuid.NullUUID
-		var orderID, token sql.NullString
-		err := rows.Scan(&t.ID, &t.UserID, &custID, &t.TotalAmount, &t.PaymentMethod, &t.PaymentStatus, &orderID, &token, &t.Status, &t.CreatedAt)
+		var orderID, token, promoCode sql.NullString
+		err := rows.Scan(&t.ID, &t.UserID, &custID, &t.TotalAmount, &t.PaymentMethod, &t.PaymentStatus, &orderID, &token, &t.Status, &promoCode, &t.DiscountAmount, &t.CreatedAt)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -554,6 +581,9 @@ func (r *pgTransactionRepository) GetPaginated(page, limit int, search string, s
 		}
 		if token.Valid {
 			t.MidtransToken = &token.String
+		}
+		if promoCode.Valid {
+			t.PromoCode = &promoCode.String
 		}
 		transactions = append(transactions, t)
 	}

@@ -31,7 +31,22 @@ api.interceptors.response.use(
 
 export const formatTxId = (id: string) => {
   if (!id) return ''
-  // Format check: YYYYMMDD-HHMM-SS00-0000-XXXXXXXXXXXX
+
+  // Format check 1: DDMMYYYY-XXXX-0000-0000-XXXXXXXXXXXX (Our new sequential format)
+  if (/^\d{8}-\d{4}-0000-0000-[a-f0-9]{12}$/i.test(id)) {
+    const parts = id.split('-')
+    const dateStr = parts[0] // e.g. "01062026"
+    const seqStr = parts[1]  // e.g. "0001"
+    
+    // We want output: TX-DDMMYY-XXXX (e.g. TX-010626-0001)
+    const day = dateStr.slice(0, 2)
+    const month = dateStr.slice(2, 4)
+    const yearShort = dateStr.slice(6, 8) // e.g. "26" from "2026"
+    
+    return `TX-${day}${month}${yearShort}-${seqStr}`
+  }
+
+  // Format check 2: YYYYMMDD-HHMM-SS00-0000-XXXXXXXXXXXX (Legacy format)
   if (/^\d{8}-\d{4}-\d{4}-0000-[a-f0-9]{12}$/i.test(id)) {
     const parts = id.split('-')
     const date = parts[0] // 20260601
@@ -39,6 +54,7 @@ export const formatTxId = (id: string) => {
     const random = parts[4].slice(0, 4) // first 4 chars of the random hex
     return `TX-${date.slice(2)}-${time}-${random}` // e.g. TX-260601-1632-a1b2
   }
+
   // Fallback
   return id.length > 8 ? `TX-${id.slice(0, 8).toUpperCase()}` : id
 }

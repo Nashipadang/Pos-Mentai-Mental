@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { usePOSStore } from '../store/posStore'
 import { useAuthStore } from '../store/authStore'
-import api from '../lib/api'
+import api, { formatTxId } from '../lib/api'
 import { 
   Search, 
   Plus, 
@@ -36,6 +36,7 @@ export default function POS() {
     customers, 
     addCustomer,
     createTransaction,
+    checkPromoCode,
     settings
   } = usePOSStore()
   const { user } = useAuthStore()
@@ -65,6 +66,37 @@ export default function POS() {
   const [showClearCartConfirm, setShowClearCartConfirm] = useState(false)
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+
+  // Promo & Voucher state variables
+  const [promoCodeInput, setPromoCodeInput] = useState('')
+  const [appliedPromo, setAppliedPromo] = useState<{
+    code: string
+    discountAmount: number
+    type?: string
+    value?: number
+  } | null>(null)
+  const [promoStatus, setPromoStatus] = useState<{
+    type: 'success' | 'error' | 'idle'
+    message: string
+  }>({ type: 'idle', message: '' })
+
+  // State variables for WhatsApp Gateway manual sending
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false)
+  const [waPhoneInput, setWaPhoneInput] = useState('')
+  const [waSendStatus, setWaSendStatus] = useState<{ type: 'success' | 'error' | 'idle', message: string }>({ type: 'idle', message: '' })
+
+  useEffect(() => {
+    if (completedTransaction) {
+      const customer = completedTransaction.customer_id
+        ? customers.find((c) => c.id === completedTransaction.customer_id)
+        : null
+      setWaPhoneInput(customer && customer.phone ? customer.phone : '')
+      setWaSendStatus({ type: 'idle', message: '' })
+    } else {
+      setWaPhoneInput('')
+      setWaSendStatus({ type: 'idle', message: '' })
+    }
+  }, [completedTransaction, customers])
 
   // ── BOM Dynamic Stock Calculation ────────────────────────────────
   const productStocks = useMemo(() => {
@@ -161,6 +193,76 @@ export default function POS() {
     return { items, subtotal }
   }, [cart, products])
 
+  // Helper to reset cart and promo states
+  const resetCartAndPromo = () => {
+    setCart([])
+    setSelectedCustomerId('')
+    setAppliedPromo(null)
+    setPromoCodeInput('')
+    setPromoStatus({ type: 'idle', message: '' })
+  }
+
+  // Revalidate or clear promo on subtotal changes
+  useEffect(() => {
+    if (appliedPromo) {
+      if (cartDetails.subtotal === 0) {
+        setAppliedPromo(null)
+        setPromoStatus({ type: 'idle', message: '' })
+        return
+      }
+      checkPromoCode(appliedPromo.code, cartDetails.subtotal).then((res) => {
+        if (res.valid) {
+          setAppliedPromo({
+            code: appliedPromo.code,
+            discountAmount: res.discount_amount,
+            type: res.type,
+            value: res.value
+          })
+          setPromoStatus({ type: 'success', message: res.message })
+        } else {
+          setAppliedPromo(null)
+          setPromoStatus({ type: 'error', message: `Promo dilepas: ${res.message}` })
+        }
+      }).catch(() => {
+        setAppliedPromo(null)
+        setPromoStatus({ type: 'error', message: 'Koneksi gagal saat re-validasi promo' })
+      })
+    }
+  }, [cartDetails.subtotal, checkPromoCode])
+
+  const handleApplyPromo = async () => {
+    if (!promoCodeInput.trim()) return
+    if (cartDetails.subtotal === 0) {
+      setPromoStatus({ type: 'error', message: 'Pilih produk terlebih dahulu' })
+      return
+    }
+    setPromoStatus({ type: 'idle', message: '' })
+    try {
+      const res = await checkPromoCode(promoCodeInput.trim().toUpperCase(), cartDetails.subtotal)
+      if (res.valid) {
+        setAppliedPromo({
+          code: promoCodeInput.trim().toUpperCase(),
+          discountAmount: res.discount_amount,
+          type: res.type,
+          value: res.value
+        })
+        setPromoStatus({ type: 'success', message: res.message })
+      } else {
+        setAppliedPromo(null)
+        setPromoStatus({ type: 'error', message: res.message })
+      }
+    } catch (err) {
+      setAppliedPromo(null)
+      setPromoStatus({ type: 'error', message: 'Gagal memproses kode promo' })
+    }
+  }
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null)
+    setPromoCodeInput('')
+    setPromoStatus({ type: 'idle', message: '' })
+  }
+
   // ── Inline Customer Creation ─────────────────────────────────────
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -205,13 +307,11 @@ export default function POS() {
               const updatedTx = await api.get(`/transactions/${transaction.id}`)
               setCompletedTransaction(updatedTx.data.data)
               setShowReceiptModal(true)
-              setCart([])
-              setSelectedCustomerId('')
+              resetCartAndPromo()
             } catch (err) {
               console.error('Failed to get transaction status:', err)
               setShowReceiptModal(true)
-              setCart([])
-              setSelectedCustomerId('')
+              resetCartAndPromo()
             }
           },
           onPending: async (result: any) => {
@@ -220,13 +320,11 @@ export default function POS() {
               const updatedTx = await api.get(`/transactions/${transaction.id}`)
               setCompletedTransaction(updatedTx.data.data)
               setShowReceiptModal(true)
-              setCart([])
-              setSelectedCustomerId('')
+              resetCartAndPromo()
             } catch (err) {
               console.error('Failed to get transaction status:', err)
               setShowReceiptModal(true)
-              setCart([])
-              setSelectedCustomerId('')
+              resetCartAndPromo()
             }
           },
           onError: (result: any) => {
@@ -252,7 +350,8 @@ export default function POS() {
       customer_id: selectedCustomerId || undefined,
       payment_method: paymentMethod,
       items: cart.map(c => ({ product_id: c.product_id, quantity: c.quantity })),
-      user_id: user?.id || 'u-1'
+      user_id: user?.id || 'u-1',
+      promo_code: appliedPromo ? appliedPromo.code : undefined
     }
 
     const result = await createTransaction(txRequest)
@@ -274,8 +373,7 @@ export default function POS() {
         }
       } else {
         setShowReceiptModal(true)
-        setCart([])
-        setSelectedCustomerId('')
+        resetCartAndPromo()
       }
     } else {
       setErrorMessage(result.error || 'Terjadi kesalahan saat transaksi')
@@ -304,8 +402,7 @@ export default function POS() {
       setShowReceiptModal(true)
       setShowMidtransModal(false)
       setPendingTxRequest(null)
-      setCart([])
-      setSelectedCustomerId('')
+      resetCartAndPromo()
     } catch (err: any) {
       setErrorMessage(err.response?.data?.message || 'Terjadi kesalahan saat checkout QRIS')
       setShowErrorModal(true)
@@ -313,9 +410,34 @@ export default function POS() {
   }
 
   const handleClearCart = () => {
-    setCart([])
-    setSelectedCustomerId('')
+    resetCartAndPromo()
     setShowClearCartConfirm(false)
+  }
+
+  const handleSendWhatsAppReceipt = async () => {
+    if (!completedTransaction) return
+
+    setSendingWhatsApp(true)
+    setWaSendStatus({ type: 'idle', message: '' })
+
+    try {
+      const resp = await api.post(`/transactions/${completedTransaction.id}/send-whatsapp-receipt`, {
+        phone: waPhoneInput
+      })
+      setWaSendStatus({
+        type: 'success',
+        message: resp.data.message || 'Struk WhatsApp berhasil dikirim ke pelanggan!'
+      })
+    } catch (err: any) {
+      console.error('Failed to send WhatsApp receipt:', err)
+      const errMsg = err.response?.data?.message || err.message || 'Gagal terhubung ke server.'
+      setWaSendStatus({
+        type: 'error',
+        message: `Gagal mengirim struk: ${errMsg}`
+      })
+    } finally {
+      setSendingWhatsApp(false)
+    }
   }
 
   const formatIDR = (val: number) => {
@@ -557,7 +679,61 @@ export default function POS() {
               placeholder="Pilih Pelanggan (Walk-In)"
               options={customers.map(c => ({ value: c.id, label: `${c.name} (${c.phone})` }))}
               icon={<User className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />}
+              searchable={true}
+              searchPlaceholder="Cari nama/no HP..."
             />
+          )}
+        </div>
+
+        {/* Promo / Voucher Block */}
+        <div className="pt-4 border-t border-[hsl(var(--border))]/60 space-y-3">
+          <label className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider block">
+            Voucher & Promo
+          </label>
+          
+          {appliedPromo ? (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between animate-fade-in">
+              <div className="min-w-0">
+                <span className="inline-block text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-600 text-white mr-1.5">
+                  {appliedPromo.code}
+                </span>
+                <span className="text-xs font-bold text-emerald-800">
+                  Hemat {formatIDR(appliedPromo.discountAmount)}
+                </span>
+              </div>
+              <button
+                onClick={handleRemovePromo}
+                className="p-1 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-800 rounded-lg transition cursor-pointer"
+                title="Hapus Promo"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Masukkan kode promo (MENTAIPAS / MENTAIHEBAT)"
+                  value={promoCodeInput}
+                  onChange={(e) => setPromoCodeInput(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-xl border border-[hsl(var(--border))] text-xs focus:ring-1 focus:ring-[hsl(var(--primary))] bg-white focus:outline-none uppercase font-sans font-bold"
+                />
+                <button
+                  onClick={handleApplyPromo}
+                  className="px-4 py-2 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-white font-sans font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  Terapkan
+                </button>
+              </div>
+              {promoStatus.type !== 'idle' && (
+                <p className={`text-[10px] font-bold ${
+                  promoStatus.type === 'success' ? 'text-emerald-600' : 'text-red-500'
+                }`}>
+                  {promoStatus.message}
+                </p>
+              )}
+            </div>
           )}
         </div>
 
@@ -609,13 +785,21 @@ export default function POS() {
             <span>Subtotal</span>
             <span>{formatIDR(cartDetails.subtotal)}</span>
           </div>
+          {appliedPromo && (
+            <div className="flex justify-between text-xs font-bold text-emerald-600">
+              <span>Diskon ({appliedPromo.code})</span>
+              <span>-{formatIDR(appliedPromo.discountAmount)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-xs font-bold text-[hsl(var(--muted-foreground))]">
             <span>Pajak (0%)</span>
             <span>Rp0</span>
           </div>
           <div className="flex justify-between text-sm font-extrabold text-[hsl(var(--foreground))] pt-1">
             <span>Total Belanja</span>
-            <span className="text-base text-[hsl(var(--primary))]">{formatIDR(cartDetails.subtotal)}</span>
+            <span className="text-base text-[hsl(var(--primary))]">
+              {formatIDR(cartDetails.subtotal - (appliedPromo ? appliedPromo.discountAmount : 0))}
+            </span>
           </div>
         </div>
 
@@ -727,7 +911,7 @@ export default function POS() {
               <div className="space-y-1">
                 <div className="flex justify-between">
                   <span>ID Transaksi:</span>
-                  <span className="font-bold">{completedTransaction.id}</span>
+                  <span className="font-bold">{formatTxId(completedTransaction.id)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Tanggal:</span>
@@ -767,6 +951,18 @@ export default function POS() {
               </div>
 
               <div className="space-y-1">
+                {completedTransaction.discount_amount > 0 && (
+                  <>
+                    <div className="flex justify-between">
+                      <span>SUBTOTAL</span>
+                      <span>{formatIDR(completedTransaction.total_amount + completedTransaction.discount_amount)}</span>
+                    </div>
+                    <div className="flex justify-between text-red-600 font-bold">
+                      <span>DISKON ({completedTransaction.promo_code || 'PROMO'})</span>
+                      <span>-{formatIDR(completedTransaction.discount_amount)}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between font-extrabold text-xs">
                   <span>TOTAL BELANJA</span>
                   <span>{formatIDR(completedTransaction.total_amount)}</span>
@@ -786,25 +982,62 @@ export default function POS() {
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  window.print()
-                }}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] text-xs font-bold rounded-xl transition cursor-pointer text-[hsl(var(--foreground))]"
-              >
-                <Printer className="w-4 h-4" />
-                Cetak Struk
-              </button>
-              <button
-                onClick={() => {
-                  setShowReceiptModal(false)
-                  setCompletedTransaction(null)
-                }}
-                className="flex-1 py-2.5 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer text-center"
-              >
-                Tutup & Selesai
-              </button>
+            <div className="space-y-3">
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 space-y-3 shadow-inner">
+                <label className="block text-[10px] font-extrabold uppercase text-stone-500 tracking-wider">
+                  Kirim Struk via WhatsApp Gateway
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={waPhoneInput}
+                    onChange={(e) => setWaPhoneInput(e.target.value)}
+                    placeholder="Nomor HP (contoh: 08123456789)"
+                    disabled={sendingWhatsApp}
+                    className="flex-1 px-3 py-2 text-xs bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] disabled:opacity-60 text-[hsl(var(--foreground))]"
+                  />
+                  <button
+                    onClick={handleSendWhatsAppReceipt}
+                    disabled={sendingWhatsApp || !waPhoneInput}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-600/50 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {sendingWhatsApp ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Kirim...
+                      </>
+                    ) : (
+                      'Kirim'
+                    )}
+                  </button>
+                </div>
+                {waSendStatus.message && (
+                  <p className={`text-[10px] font-bold ${waSendStatus.type === 'success' ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {waSendStatus.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    window.print()
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] text-xs font-bold rounded-xl transition cursor-pointer text-[hsl(var(--foreground))]"
+                >
+                  <Printer className="w-4 h-4" />
+                  Cetak Struk
+                </button>
+                <button
+                  onClick={() => {
+                    setShowReceiptModal(false)
+                    setCompletedTransaction(null)
+                  }}
+                  className="flex-1 py-2.5 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer text-center"
+                >
+                  Tutup & Selesai
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -815,7 +1048,9 @@ export default function POS() {
       <ConfirmModal
         isOpen={showCheckoutConfirm}
         title="Proses Transaksi?"
-        message={`Apakah Anda yakin ingin memproses transaksi senilai ${formatIDR(cartDetails.subtotal)} dengan metode ${
+        message={`Apakah Anda yakin ingin memproses transaksi senilai ${formatIDR(
+          cartDetails.subtotal - (appliedPromo ? appliedPromo.discountAmount : 0)
+        )} dengan metode ${
           paymentMethod === 'cash' 
             ? 'Tunai' 
             : paymentMethod === 'transfer' 

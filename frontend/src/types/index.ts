@@ -115,7 +115,20 @@ export interface Transaction {
   snap_redirect_url?: string
   status: TransactionStatus
   created_at: string
+  promo_code?: string
+  discount_amount?: number
   items?: TransactionItem[]
+}
+
+export interface Promo {
+  id: string
+  code: string
+  type: 'percentage' | 'flat'
+  value: number
+  min_transaction: number
+  max_discount?: number | null
+  is_active: boolean
+  created_at: string
 }
 
 // ── Analytics ───────────────────────────────────────────────

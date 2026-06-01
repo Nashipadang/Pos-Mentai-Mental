@@ -43,9 +43,59 @@ export default function Transactions() {
   const [limit, setLimit] = useState(10)
   const [loading, setLoading] = useState(false)
 
+  // Get active transaction details
+  const activeTx = useMemo(() => {
+    if (!selectedTxId) return null
+    return paginatedTxs.find(t => t.id === selectedTxId) || null
+  }, [selectedTxId, paginatedTxs])
+
   // Void modal state
   const [showVoidConfirm, setShowVoidConfirm] = useState(false)
   const [txToVoidId, setTxToVoidId] = useState<string | null>(null)
+
+  // State variables for WhatsApp Gateway manual sending
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false)
+  const [waPhoneInput, setWaPhoneInput] = useState('')
+  const [waSendStatus, setWaSendStatus] = useState<{ type: 'success' | 'error' | 'idle', message: string }>({ type: 'idle', message: '' })
+
+  useEffect(() => {
+    if (activeTx) {
+      const customer = activeTx.customer_id
+        ? customers.find((c) => c.id === activeTx.customer_id)
+        : null
+      setWaPhoneInput(customer && customer.phone ? customer.phone : '')
+      setWaSendStatus({ type: 'idle', message: '' })
+    } else {
+      setWaPhoneInput('')
+      setWaSendStatus({ type: 'idle', message: '' })
+    }
+  }, [activeTx, customers])
+
+  const handleSendWhatsAppReceipt = async () => {
+    if (!activeTx) return
+
+    setSendingWhatsApp(true)
+    setWaSendStatus({ type: 'idle', message: '' })
+
+    try {
+      const resp = await api.post(`/transactions/${activeTx.id}/send-whatsapp-receipt`, {
+        phone: waPhoneInput
+      })
+      setWaSendStatus({
+        type: 'success',
+        message: resp.data.message || 'Struk WhatsApp berhasil dikirim ke pelanggan!'
+      })
+    } catch (err: any) {
+      console.error('Failed to send WhatsApp receipt:', err)
+      const errMsg = err.response?.data?.message || err.message || 'Gagal terhubung ke server.'
+      setWaSendStatus({
+        type: 'error',
+        message: `Gagal mengirim struk: ${errMsg}`
+      })
+    } finally {
+      setSendingWhatsApp(false)
+    }
+  }
 
   // ── Date Filtering Helper Functions ──────────────────────────────
   const toLocalDateString = (date: Date) => {
@@ -119,11 +169,7 @@ export default function Transactions() {
     setPage(1)
   }, [search, dateFilter, startDate, endDate, paymentFilter, statusFilter])
 
-  // Get active transaction details
-  const activeTx = useMemo(() => {
-    if (!selectedTxId) return null
-    return paginatedTxs.find(t => t.id === selectedTxId) || null
-  }, [selectedTxId, paginatedTxs])
+
 
   // Handlers
   const handleSelectTx = (id: string) => {
@@ -522,6 +568,42 @@ export default function Transactions() {
                 <div className="text-center pt-2 border-t border-dashed border-stone-300 text-[10px] text-stone-500 whitespace-pre-line leading-normal">
                   {(settings.receipt_footer || 'Terima kasih atas pesanan Anda!\nMentai Mental - Dimsum Mentai Juara').replace(/\\n/g, '\n')}
                 </div>
+              </div>
+
+              {/* WhatsApp Gateway Send Panel */}
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 space-y-3 shadow-inner">
+                <label className="block text-[10px] font-extrabold uppercase text-stone-500 tracking-wider">
+                  Kirim Struk via WhatsApp Gateway
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={waPhoneInput}
+                    onChange={(e) => setWaPhoneInput(e.target.value)}
+                    placeholder="Nomor HP (contoh: 08123456789)"
+                    disabled={sendingWhatsApp}
+                    className="flex-1 px-3 py-2 text-xs bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))] disabled:opacity-60 text-[hsl(var(--foreground))]"
+                  />
+                  <button
+                    onClick={handleSendWhatsAppReceipt}
+                    disabled={sendingWhatsApp || !waPhoneInput}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-600/50 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {sendingWhatsApp ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Kirim...
+                      </>
+                    ) : (
+                      'Kirim'
+                    )}
+                  </button>
+                </div>
+                {waSendStatus.message && (
+                  <p className={`text-[10px] font-bold ${waSendStatus.type === 'success' ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {waSendStatus.message}
+                  </p>
+                )}
               </div>
 
               {/* Action Controls */}

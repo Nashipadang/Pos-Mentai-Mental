@@ -114,6 +114,8 @@ type Transaction struct {
 	MidtransToken    *string           `json:"midtrans_token,omitempty" db:"midtrans_token"`
 	Status           TransactionStatus `json:"status" db:"status"`
 	CreatedAt        time.Time         `json:"created_at" db:"created_at"`
+	PromoCode        *string           `json:"promo_code,omitempty" db:"promo_code"`
+	DiscountAmount   float64           `json:"discount_amount" db:"discount_amount"`
 	Items            []TransactionItem `json:"items,omitempty"`
 }
 
@@ -135,4 +137,15 @@ type StockMovement struct {
 	Quantity      float64           `json:"quantity" db:"quantity"`
 	Notes         *string           `json:"notes,omitempty" db:"notes"`
 	CreatedAt     time.Time         `json:"created_at" db:"created_at"`
+}
+
+type Promo struct {
+	ID             uuid.UUID `json:"id" db:"id"`
+	Code           string    `json:"code" db:"code"`
+	Type           string    `json:"type" db:"type"`
+	Value          float64   `json:"value" db:"value"`
+	MinTransaction float64   `json:"min_transaction" db:"min_transaction"`
+	MaxDiscount    *float64  `json:"max_discount,omitempty" db:"max_discount"`
+	IsActive       bool      `json:"is_active" db:"is_active"`
+	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 }

@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"bytes"
+	"database/sql"
 	"log"
 	"net/http"
 	"strconv"
@@ -25,12 +27,21 @@ import (
 )
 
 type TransactionHandler struct {
-	txRepo      repository.TransactionRepository
-	productRepo repository.ProductRepository
+	txRepo       repository.TransactionRepository
+	productRepo  repository.ProductRepository
+	promoRepo    repository.PromoRepository
+	customerRepo repository.CustomerRepository
+	db           *sql.DB
 }
 
-func NewTransactionHandler(tr repository.TransactionRepository, pr repository.ProductRepository) *TransactionHandler {
-	return &TransactionHandler{txRepo: tr, productRepo: pr}
+func NewTransactionHandler(tr repository.TransactionRepository, pr repository.ProductRepository, promR repository.PromoRepository, cr repository.CustomerRepository, db *sql.DB) *TransactionHandler {
+	return &TransactionHandler{
+		txRepo:       tr,
+		productRepo:  pr,
+		promoRepo:    promR,
+		customerRepo: cr,
+		db:           db,
+	}
 }
 
 func (h *TransactionHandler) RegisterRoutes(r *gin.RouterGroup) {
@@ -41,6 +52,7 @@ func (h *TransactionHandler) RegisterRoutes(r *gin.RouterGroup) {
 		txs.GET("", middleware.AuthRequired(), h.GetAll)
 		txs.GET("/:id", middleware.AuthRequired(), h.GetByID)
 		txs.POST("/:id/cancel", middleware.AuthRequired(), h.Cancel)
+		txs.POST("/:id/send-whatsapp-receipt", middleware.AuthRequired(), h.SendWhatsAppReceipt)
 
 		// Public Midtrans notification webhook
 		txs.POST("/midtrans-webhook", h.MidtransWebhook)
@@ -53,8 +65,9 @@ type CreateItemRequest struct {
 }
 
 type CreateTransactionRequest struct {
-	CustomerID    *string           `json:"customer_id"`
+	CustomerID    *string             `json:"customer_id"`
 	PaymentMethod model.PaymentMethod `json:"payment_method" binding:"required"`
+	PromoCode     *string             `json:"promo_code"`
 	Items         []CreateItemRequest `json:"items" binding:"required,gt=0"`
 }
 
@@ -101,7 +114,14 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 		customerID = &parsedCustID
 	}
 
-	txID := uuid.New()
+	// Get today's transaction count to generate sequence number
+	count, err := h.txRepo.GetTodayCount()
+	if err != nil {
+		log.Printf("Failed to get today count: %v", err)
+		count = 0
+	}
+	sequence := count + 1
+	txID := repository.GenerateReadableUUID(sequence)
 	var totalAmount float64
 	var txItems []model.TransactionItem
 
@@ -133,6 +153,7 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 			Quantity:      item.Quantity,
 			UnitPrice:     p.Price,
 			Subtotal:      subtotal,
+			Product:       p,
 		})
 	}
 
@@ -145,15 +166,41 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 		txStatus = model.TxStatusPending
 	}
 
+	// Calculate promo/discount if applied
+	var discountAmount float64
+	var appliedPromoCode *string
+
+	if req.PromoCode != nil && *req.PromoCode != "" {
+		p, err := h.promoRepo.GetByCode(*req.PromoCode)
+		if err == nil && p != nil && p.IsActive && totalAmount >= p.MinTransaction {
+			appliedPromoCode = &p.Code
+			if p.Type == "percentage" {
+				discountAmount = (p.Value / 100.0) * totalAmount
+				if p.MaxDiscount != nil && *p.MaxDiscount > 0 && discountAmount > *p.MaxDiscount {
+					discountAmount = *p.MaxDiscount
+				}
+			} else if p.Type == "flat" {
+				discountAmount = p.Value
+			}
+			if discountAmount > totalAmount {
+				discountAmount = totalAmount
+			}
+		}
+	}
+
+	finalTotal := totalAmount - discountAmount
+
 	t := &model.Transaction{
-		ID:            txID,
-		UserID:        userID,
-		CustomerID:    customerID,
-		TotalAmount:   totalAmount,
-		PaymentMethod: req.PaymentMethod,
-		PaymentStatus: paymentStatus,
-		Status:        txStatus,
-		Items:         txItems,
+		ID:             txID,
+		UserID:         userID,
+		CustomerID:     customerID,
+		TotalAmount:    finalTotal,
+		PaymentMethod:  req.PaymentMethod,
+		PaymentStatus:  paymentStatus,
+		Status:         txStatus,
+		PromoCode:      appliedPromoCode,
+		DiscountAmount: discountAmount,
+		Items:          txItems,
 	}
 
 	// Request snap payment details if using Midtrans
@@ -183,7 +230,7 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 			snapReq := &snap.Request{
 				TransactionDetails: midtrans.TransactionDetails{
 					OrderID:  orderID,
-					GrossAmt: int64(totalAmount),
+					GrossAmt: int64(t.TotalAmount),
 				},
 				Expiry: &snap.ExpiryDetails{
 					Duration: 24,
@@ -214,6 +261,8 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 		Error(c, http.StatusInternalServerError, "Gagal menyimpan transaksi: "+err.Error())
 		return
 	}
+
+
 
 	Success(c, http.StatusCreated, CheckoutResponse{
 		Transaction:     *t,
@@ -498,5 +547,319 @@ func (h *TransactionHandler) MidtransWebhook(c *gin.Context) {
 		return
 	}
 
+
+
 	Success(c, http.StatusOK, gin.H{"status": "processed"})
+}
+
+// ── WhatsApp Receipt Helpers ──────────────────────────────────────────────────
+
+func (h *TransactionHandler) triggerWhatsAppReceipt(t *model.Transaction) {
+	if t == nil || t.CustomerID == nil || t.Status != model.TxStatusCompleted {
+		return
+	}
+
+	cust, err := h.customerRepo.GetByID(*t.CustomerID)
+	if err != nil || cust == nil || cust.Phone == "" {
+		return
+	}
+
+	settings, err := h.getSettingsMap()
+	if err != nil {
+		log.Printf("[WA Gateway] Failed to load settings for receipt: %v", err)
+		settings = map[string]string{
+			"store_name":     "Mentai Mental",
+			"receipt_header": "MENTAI MENTAL",
+			"receipt_footer": "Terima kasih atas pesanan Anda!",
+		}
+	}
+
+	receiptMsg := h.formatReceiptMessage(t, cust.Name, settings)
+	go h.sendWhatsAppGateway(cust.Phone, receiptMsg)
+}
+
+func formatIDR(val float64) string {
+	n := int64(val)
+	s := strconv.FormatInt(n, 10)
+	
+	var result []string
+	length := len(s)
+	for i := length; i > 0; i -= 3 {
+		start := i - 3
+		if start < 0 {
+			start = 0
+		}
+		result = append([]string{s[start:i]}, result...)
+	}
+	
+	return "Rp " + strings.Join(result, ".")
+}
+
+func formatTxID(id string) string {
+	parts := strings.Split(id, "-")
+	if len(parts) >= 2 && len(parts[0]) == 8 && len(parts[1]) == 4 {
+		dateStr := parts[0]
+		seqStr := parts[1]
+		
+		day := dateStr[0:2]
+		month := dateStr[2:4]
+		yearShort := dateStr[6:8]
+		
+		return fmt.Sprintf("TX-%s%s%s-%s", day, month, yearShort, seqStr)
+	}
+	
+	if len(id) > 8 {
+		return "TX-" + strings.ToUpper(id[:8])
+	}
+	return id
+}
+
+func (h *TransactionHandler) getSettingsMap() (map[string]string, error) {
+	rows, err := h.db.Query("SELECT key, value FROM settings")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	settings := make(map[string]string)
+	for rows.Next() {
+		var key, value string
+		if err := rows.Scan(&key, &value); err == nil {
+			settings[key] = value
+		}
+	}
+	return settings, nil
+}
+
+func (h *TransactionHandler) formatReceiptMessage(t *model.Transaction, custName string, settings map[string]string) string {
+	header := settings["receipt_header"]
+	if header == "" {
+		header = settings["store_name"]
+	}
+	if header == "" {
+		header = "MENTAI MENTAL"
+	}
+
+	address := strings.ReplaceAll(settings["store_address"], "\\n", "\n")
+	footer := settings["receipt_footer"]
+	if footer == "" {
+		footer = "Terima kasih atas pesanan Anda!\nMentai Mental - Dimsum Mentai Juara"
+	} else {
+		footer = strings.ReplaceAll(footer, "\\n", "\n")
+	}
+
+	txID := formatTxID(t.ID.String())
+	
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	var formattedTime string
+	if err == nil {
+		formattedTime = t.CreatedAt.In(loc).Format("02 Jan 2006 15:04")
+	} else {
+		formattedTime = t.CreatedAt.Format("02 Jan 2006 15:04")
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("*%s*\n", strings.ToUpper(header)))
+	if address != "" {
+		sb.WriteString(fmt.Sprintf("%s\n", address))
+	}
+	sb.WriteString("----------------------------------------\n")
+	sb.WriteString(fmt.Sprintf("No. Transaksi : %s\n", txID))
+	sb.WriteString(fmt.Sprintf("Tanggal       : %s\n", formattedTime))
+	sb.WriteString(fmt.Sprintf("Pelanggan     : %s\n", custName))
+	sb.WriteString("----------------------------------------\n")
+
+	var subtotalAmount float64
+	for _, item := range t.Items {
+		prodName := "Produk"
+		if item.Product != nil {
+			prodName = item.Product.Name
+		}
+		if item.Quantity > 1 {
+			sb.WriteString(fmt.Sprintf("%dx %s (@%s) - %s\n", item.Quantity, prodName, formatIDR(item.UnitPrice), formatIDR(item.Subtotal)))
+		} else {
+			sb.WriteString(fmt.Sprintf("%dx %s - %s\n", item.Quantity, prodName, formatIDR(item.Subtotal)))
+		}
+		subtotalAmount += item.Subtotal
+	}
+	sb.WriteString("----------------------------------------\n")
+	sb.WriteString(fmt.Sprintf("Subtotal      : %s\n", formatIDR(subtotalAmount)))
+	
+	if t.DiscountAmount > 0 {
+		promoInfo := ""
+		if t.PromoCode != nil && *t.PromoCode != "" {
+			promoInfo = fmt.Sprintf(" (%s)", *t.PromoCode)
+		}
+		sb.WriteString(fmt.Sprintf("Diskon        : -%s%s\n", formatIDR(t.DiscountAmount), promoInfo))
+	}
+	
+	sb.WriteString(fmt.Sprintf("Total         : %s\n", formatIDR(t.TotalAmount)))
+	
+	payMethod := string(t.PaymentMethod)
+	if len(payMethod) > 0 {
+		payMethod = strings.ToUpper(payMethod[:1]) + payMethod[1:]
+	}
+	sb.WriteString(fmt.Sprintf("Pembayaran    : %s\n", payMethod))
+	sb.WriteString("----------------------------------------\n")
+	sb.WriteString(footer)
+
+	return sb.String()
+}
+
+func (h *TransactionHandler) sendWhatsAppGateway(phone string, message string) {
+	url := "http://localhost:9000/send"
+	
+	payloadMap := map[string]string{
+		"phone":   phone,
+		"message": message,
+	}
+	
+	payloadBytes, err := json.Marshal(payloadMap)
+	if err != nil {
+		log.Printf("[WA Gateway] Failed to marshal payload: %v", err)
+		return
+	}
+	
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		log.Printf("[WA Gateway] Failed to create HTTP request: %v", err)
+		return
+	}
+	
+	req.Header.Set("Content-Type", "application/json")
+	
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("[WA Gateway] Service offline or request failed: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+	
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[WA Gateway] Received error status %d: %s", resp.StatusCode, string(bodyBytes))
+		return
+	}
+	
+	log.Printf("[WA Gateway] Pesan otomatis berhasil dikirim ke nomor %s", phone)
+}
+
+type SendWhatsAppReceiptRequest struct {
+	Phone *string `json:"phone"`
+}
+
+// SendWhatsAppReceipt manual trigger to send receipt to client's phone
+// @Summary      Send Receipt via WhatsApp
+// @Description  Format transaction receipt and trigger local WhatsApp gateway
+// @Tags         transaction
+// @Security     BearerAuth
+// @Param        id path string true "Transaction UUID"
+// @Param        request body SendWhatsAppReceiptRequest false "Optional Phone Number Override"
+// @Produce      json
+// @Success      200 {object} Response
+// @Failure      400 {object} Response
+// @Failure      404 {object} Response
+// @Failure      500 {object} Response
+// @Router       /transactions/{id}/send-whatsapp-receipt [post]
+func (h *TransactionHandler) SendWhatsAppReceipt(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		Error(c, http.StatusBadRequest, "ID transaksi tidak valid")
+		return
+	}
+
+	t, err := h.txRepo.GetByID(id)
+	if err != nil {
+		Error(c, http.StatusInternalServerError, "Gagal mengambil data transaksi")
+		return
+	}
+	if t == nil {
+		Error(c, http.StatusNotFound, "Transaksi tidak ditemukan")
+		return
+	}
+
+	var bodyReq SendWhatsAppReceiptRequest
+	_ = c.ShouldBindJSON(&bodyReq) // Ignore error as body is optional
+
+	var recipientPhone string
+	if bodyReq.Phone != nil && *bodyReq.Phone != "" {
+		recipientPhone = *bodyReq.Phone
+	} else {
+		if t.CustomerID == nil {
+			Error(c, http.StatusBadRequest, "Transaksi ini adalah Walk-In. Silakan masukkan nomor telepon penerima.")
+			return
+		}
+		cust, err := h.customerRepo.GetByID(*t.CustomerID)
+		if err != nil || cust == nil || cust.Phone == "" {
+			Error(c, http.StatusBadRequest, "Pelanggan tidak memiliki nomor telepon terdaftar. Silakan masukkan nomor telepon penerima.")
+			return
+		}
+		recipientPhone = cust.Phone
+	}
+
+	custName := "Walk-In"
+	if t.CustomerID != nil {
+		cust, err := h.customerRepo.GetByID(*t.CustomerID)
+		if err == nil && cust != nil {
+			custName = cust.Name
+		}
+	}
+
+	settings, err := h.getSettingsMap()
+	if err != nil {
+		log.Printf("[WA Gateway] Failed to load settings for receipt: %v", err)
+		settings = map[string]string{
+			"store_name":     "Mentai Mental",
+			"receipt_header": "MENTAI MENTAL",
+			"receipt_footer": "Terima kasih atas pesanan Anda!",
+		}
+	}
+
+	receiptMsg := h.formatReceiptMessage(t, custName, settings)
+
+	// Post JSON body to local gateway synchronously to report success/failure
+	url := "http://localhost:9000/send"
+	payloadMap := map[string]string{
+		"phone":   recipientPhone,
+		"message": receiptMsg,
+	}
+
+	payloadBytes, err := json.Marshal(payloadMap)
+	if err != nil {
+		Error(c, http.StatusInternalServerError, "Gagal memproses payload WhatsApp")
+		return
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		Error(c, http.StatusInternalServerError, "Gagal membuat HTTP request ke gateway")
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		Error(c, http.StatusServiceUnavailable, "Gateway WhatsApp sedang offline. Silakan pastikan microservice berjalan.")
+		return
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		_ = json.Unmarshal(bodyBytes, &errResp)
+		errMsg := errResp.Error
+		if errMsg == "" {
+			errMsg = string(bodyBytes)
+		}
+		Error(c, resp.StatusCode, "Gagal dari gateway WhatsApp: "+errMsg)
+		return
+	}
+
+	Success(c, http.StatusOK, gin.H{"message": "Struk WhatsApp berhasil dikirim ke " + recipientPhone})
 }

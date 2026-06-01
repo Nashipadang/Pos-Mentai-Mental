@@ -96,6 +96,7 @@ func main() {
 	customerRepo := repository.NewCustomerRepository(db)
 	movementRepo := repository.NewStockMovementRepository(db)
 	transactionRepo := repository.NewTransactionRepository(db)
+	promoRepo := repository.NewPromoRepository(db)
 
 	// Instantiate handlers
 	authHandler := handler.NewAuthHandler(userRepo, db)
@@ -104,9 +105,10 @@ func main() {
 	inventoryHandler := handler.NewInventoryHandler(ingredientRepo, movementRepo)
 	recipeHandler := handler.NewRecipeHandler(recipeRepo)
 	customerHandler := handler.NewCustomerHandler(customerRepo)
-	transactionHandler := handler.NewTransactionHandler(transactionRepo, productRepo)
+	transactionHandler := handler.NewTransactionHandler(transactionRepo, productRepo, promoRepo, customerRepo, db)
 	analyticsHandler := handler.NewAnalyticsHandler(transactionRepo, ingredientRepo, db)
 	settingsHandler := handler.NewSettingsHandler(db)
+	promoHandler := handler.NewPromoHandler(promoRepo)
 
 	// API routes v1
 	v1 := r.Group("/api/v1")
@@ -120,6 +122,7 @@ func main() {
 		transactionHandler.RegisterRoutes(v1)
 		analyticsHandler.RegisterRoutes(v1)
 		settingsHandler.RegisterRoutes(v1)
+		promoHandler.RegisterRoutes(v1)
 	}
 
 	addr := fmt.Sprintf(":%s", config.App.AppPort)
