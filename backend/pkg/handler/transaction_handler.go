@@ -20,10 +20,10 @@ import (
 	"github.com/midtrans/midtrans-go"
 	"github.com/midtrans/midtrans-go/snap"
 
-	"github.com/mentaimental/pos-backend/internal/config"
-	"github.com/mentaimental/pos-backend/internal/middleware"
-	"github.com/mentaimental/pos-backend/internal/model"
-	"github.com/mentaimental/pos-backend/internal/repository"
+	"github.com/mentaimental/pos-backend/pkg/config"
+	"github.com/mentaimental/pos-backend/pkg/middleware"
+	"github.com/mentaimental/pos-backend/pkg/model"
+	"github.com/mentaimental/pos-backend/pkg/repository"
 )
 
 type TransactionHandler struct {

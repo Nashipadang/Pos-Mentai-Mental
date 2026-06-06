@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mentaimental/pos-backend/internal/middleware"
-	"github.com/mentaimental/pos-backend/internal/model"
+	"github.com/mentaimental/pos-backend/pkg/middleware"
+	"github.com/mentaimental/pos-backend/pkg/model"
 )
 
 type SettingsHandler struct {

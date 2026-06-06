@@ -6,9 +6,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/mentaimental/pos-backend/internal/middleware"
-	"github.com/mentaimental/pos-backend/internal/model"
-	"github.com/mentaimental/pos-backend/internal/repository"
+	"github.com/mentaimental/pos-backend/pkg/middleware"
+	"github.com/mentaimental/pos-backend/pkg/model"
+	"github.com/mentaimental/pos-backend/pkg/repository"
 )
 
 type CustomerHandler struct {

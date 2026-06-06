@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mentaimental/pos-backend/internal/model"
+	"github.com/mentaimental/pos-backend/pkg/model"
 )
 
 type TransactionRepository interface {

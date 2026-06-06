@@ -31,10 +31,10 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	_ "github.com/mentaimental/pos-backend/docs" // swagger docs auto-generated
-	"github.com/mentaimental/pos-backend/internal/config"
-	"github.com/mentaimental/pos-backend/internal/handler"
-	"github.com/mentaimental/pos-backend/internal/middleware"
-	"github.com/mentaimental/pos-backend/internal/repository"
+	"github.com/mentaimental/pos-backend/pkg/config"
+	"github.com/mentaimental/pos-backend/pkg/handler"
+	"github.com/mentaimental/pos-backend/pkg/middleware"
+	"github.com/mentaimental/pos-backend/pkg/repository"
 )
 
 func main() {
