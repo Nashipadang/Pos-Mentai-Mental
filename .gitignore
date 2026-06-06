@@ -36,7 +36,7 @@ backend/server
 backend/tmp/
 
 # Swagger generated docs (akan di-generate ulang via `swag init`)
-backend/docs/
+# backend/docs/
 
 # ── Node / Frontend ───────────────────────────────────────────
 frontend/node_modules/

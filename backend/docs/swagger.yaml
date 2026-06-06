@@ -1,0 +1,2132 @@
+basePath: /api/v1
+definitions:
+  handler.BusyHourItem:
+    properties:
+      hour:
+        type: integer
+      transaction_count:
+        type: integer
+    type: object
+  handler.CategorySalesItem:
+    properties:
+      category_name:
+        type: string
+      total_quantity:
+        type: integer
+      total_sales:
+        type: number
+    type: object
+  handler.CheckoutResponse:
+    properties:
+      snap_redirect_url:
+        type: string
+      snap_token:
+        type: string
+      transaction:
+        $ref: '#/definitions/model.Transaction'
+    type: object
+  handler.CreateCategoryRequest:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  handler.CreateCustomerRequest:
+    properties:
+      name:
+        type: string
+      phone:
+        type: string
+    required:
+    - name
+    - phone
+    type: object
+  handler.CreateIngredientRequest:
+    properties:
+      current_stock:
+        type: number
+      min_threshold:
+        type: number
+      name:
+        type: string
+      unit:
+        type: string
+    required:
+    - name
+    - unit
+    type: object
+  handler.CreateItemRequest:
+    properties:
+      product_id:
+        type: string
+      quantity:
+        type: integer
+    required:
+    - product_id
+    - quantity
+    type: object
+  handler.CreateProductRequest:
+    properties:
+      category_id:
+        type: integer
+      image_url:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      price:
+        minimum: 0
+        type: number
+    required:
+    - category_id
+    - name
+    - price
+    type: object
+  handler.CreateTransactionRequest:
+    properties:
+      customer_id:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/handler.CreateItemRequest'
+        type: array
+      payment_method:
+        $ref: '#/definitions/model.PaymentMethod'
+      promo_code:
+        type: string
+    required:
+    - items
+    - payment_method
+    type: object
+  handler.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      role:
+        allOf:
+        - $ref: '#/definitions/model.Role'
+        enum:
+        - owner
+        - kasir
+        - staff
+    required:
+    - email
+    - name
+    - password
+    - role
+    type: object
+  handler.CustomerRankingItem:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      total_spent:
+        type: number
+      total_transactions:
+        type: integer
+    type: object
+  handler.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  handler.LoginResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+      user:
+        $ref: '#/definitions/model.User'
+    type: object
+  handler.Meta:
+    properties:
+      page:
+        type: integer
+      per_page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  handler.MidtransPayload:
+    properties:
+      fraud_status:
+        type: string
+      gross_amount:
+        type: string
+      order_id:
+        type: string
+      payment_type:
+        type: string
+      signature_key:
+        type: string
+      status_code:
+        type: string
+      transaction_status:
+        type: string
+    type: object
+  handler.PaymentMethodItem:
+    properties:
+      payment_method:
+        type: string
+      total_sales:
+        type: number
+      transaction_count:
+        type: integer
+    type: object
+  handler.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  handler.RefreshResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  handler.Response:
+    properties:
+      data: {}
+      message:
+        type: string
+      meta:
+        $ref: '#/definitions/handler.Meta'
+      status:
+        type: string
+    type: object
+  handler.RestockRequest:
+    properties:
+      notes:
+        type: string
+      quantity:
+        type: number
+    required:
+    - quantity
+    type: object
+  handler.RunoutPrediction:
+    properties:
+      avg_daily_usage:
+        type: number
+      current_stock:
+        type: number
+      days_remaining:
+        description: -1 means infinite/no usage
+        type: number
+      estimated_runout_date:
+        type: string
+      ingredient_id:
+        type: string
+      ingredient_name:
+        type: string
+      unit:
+        type: string
+    type: object
+  handler.SaveRecipeItemRequest:
+    properties:
+      ingredient_id:
+        type: string
+      quantity:
+        type: number
+    required:
+    - ingredient_id
+    - quantity
+    type: object
+  handler.SendWhatsAppReceiptRequest:
+    properties:
+      phone:
+        type: string
+    type: object
+  handler.UpdateCategoryRequest:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  handler.UpdateCustomerRequest:
+    properties:
+      name:
+        type: string
+      phone:
+        type: string
+    required:
+    - name
+    - phone
+    type: object
+  handler.UpdateIngredientRequest:
+    properties:
+      current_stock:
+        minimum: 0
+        type: number
+      min_threshold:
+        type: number
+      name:
+        type: string
+      unit:
+        type: string
+    required:
+    - current_stock
+    - name
+    - unit
+    type: object
+  handler.UpdateProductRequest:
+    properties:
+      category_id:
+        type: integer
+      image_url:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      price:
+        minimum: 0
+        type: number
+    type: object
+  handler.UpdateUserRequest:
+    properties:
+      email:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      password:
+        description: Optional
+        type: string
+      role:
+        allOf:
+        - $ref: '#/definitions/model.Role'
+        enum:
+        - owner
+        - kasir
+        - staff
+    required:
+    - email
+    - name
+    - role
+    type: object
+  model.Category:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  model.Customer:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      total_spent:
+        type: number
+      total_transactions:
+        type: integer
+    type: object
+  model.Ingredient:
+    properties:
+      created_at:
+        type: string
+      current_stock:
+        type: number
+      id:
+        type: string
+      is_low:
+        type: boolean
+      min_threshold:
+        type: number
+      name:
+        type: string
+      unit:
+        type: string
+    type: object
+  model.PaymentMethod:
+    enum:
+    - cash
+    - transfer
+    - midtrans
+    type: string
+    x-enum-varnames:
+    - PaymentCash
+    - PaymentTransfer
+    - PaymentMidtrans
+  model.PaymentStatus:
+    enum:
+    - pending
+    - paid
+    - failed
+    - expired
+    type: string
+    x-enum-varnames:
+    - PaymentStatusPending
+    - PaymentStatusPaid
+    - PaymentStatusFailed
+    - PaymentStatusExpired
+  model.Product:
+    properties:
+      category:
+        $ref: '#/definitions/model.Category'
+      category_id:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: string
+      image_url:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      price:
+        type: number
+    type: object
+  model.RecipeItem:
+    properties:
+      id:
+        type: string
+      ingredient:
+        $ref: '#/definitions/model.Ingredient'
+      ingredient_id:
+        type: string
+      product_id:
+        type: string
+      quantity:
+        type: number
+    type: object
+  model.Role:
+    enum:
+    - owner
+    - kasir
+    - staff
+    type: string
+    x-enum-varnames:
+    - RoleOwner
+    - RoleKasir
+    - RoleStaff
+  model.StockMovement:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      ingredient_id:
+        type: string
+      notes:
+        type: string
+      quantity:
+        type: number
+      transaction_id:
+        type: string
+      type:
+        $ref: '#/definitions/model.StockMovementType'
+    type: object
+  model.StockMovementType:
+    enum:
+    - in
+    - out
+    type: string
+    x-enum-varnames:
+    - StockIn
+    - StockOut
+  model.Transaction:
+    properties:
+      created_at:
+        type: string
+      customer_id:
+        type: string
+      discount_amount:
+        type: number
+      id:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/model.TransactionItem'
+        type: array
+      midtrans_order_id:
+        type: string
+      midtrans_token:
+        type: string
+      payment_method:
+        $ref: '#/definitions/model.PaymentMethod'
+      payment_status:
+        $ref: '#/definitions/model.PaymentStatus'
+      promo_code:
+        type: string
+      status:
+        $ref: '#/definitions/model.TransactionStatus'
+      total_amount:
+        type: number
+      user_id:
+        type: string
+    type: object
+  model.TransactionItem:
+    properties:
+      id:
+        type: string
+      product:
+        $ref: '#/definitions/model.Product'
+      product_id:
+        type: string
+      quantity:
+        type: integer
+      subtotal:
+        type: number
+      transaction_id:
+        type: string
+      unit_price:
+        type: number
+    type: object
+  model.TransactionStatus:
+    enum:
+    - pending
+    - completed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - TxStatusPending
+    - TxStatusCompleted
+    - TxStatusCancelled
+  model.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      role:
+        $ref: '#/definitions/model.Role'
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: dev@mentaimental.com
+    name: Mentai Mental Dev
+  description: REST API untuk sistem Point of Sale Mentai Mental
+  license:
+    name: MIT
+  termsOfService: http://swagger.io/terms/
+  title: POS Mentai Mental API
+  version: "1.0"
+paths:
+  /analytics/busy-hours:
+    get:
+      description: Get transaction count distribution grouped by hour of day for completed
+        transactions
+      parameters:
+      - description: Number of days to analyze (default 30)
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/handler.BusyHourItem'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Busy Hours
+      tags:
+      - analytics
+  /analytics/category-sales:
+    get:
+      description: Get sales total and quantity sold grouped by product category
+      parameters:
+      - description: Number of days (default 30)
+        in: query
+        name: days
+        type: integer
+      - description: Start date YYYY-MM-DD
+        in: query
+        name: start_date
+        type: string
+      - description: End date YYYY-MM-DD
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/handler.CategorySalesItem'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Category Sales Analytics
+      tags:
+      - analytics
+  /analytics/customers/ranking:
+    get:
+      description: Get customers ranked by total spending amount
+      parameters:
+      - description: Number of top customers (default 10)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/handler.CustomerRankingItem'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Customer Ranking
+      tags:
+      - analytics
+  /analytics/overview:
+    get:
+      description: Get total sales, transaction counts, low stock counts, and top
+        products
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Overview Analytics
+      tags:
+      - analytics
+  /analytics/payment-methods:
+    get:
+      description: Get sales total and transaction counts grouped by payment method
+      parameters:
+      - description: Number of days (default 30)
+        in: query
+        name: days
+        type: integer
+      - description: Start date YYYY-MM-DD
+        in: query
+        name: start_date
+        type: string
+      - description: End date YYYY-MM-DD
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/handler.PaymentMethodItem'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Payment Methods Analytics
+      tags:
+      - analytics
+  /analytics/runout-predictions:
+    get:
+      description: Calculate average consumption rate over past 7 days to estimate
+        deplete dates
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/handler.RunoutPrediction'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Inventory Runout Predictions
+      tags:
+      - analytics
+  /analytics/sales-trend:
+    get:
+      description: Get sales and order counts trend over the last N days or custom
+        range, grouped by daily or monthly period
+      parameters:
+      - description: Number of days (default 7)
+        in: query
+        name: days
+        type: integer
+      - description: Start date YYYY-MM-DD
+        in: query
+        name: start_date
+        type: string
+      - description: End date YYYY-MM-DD
+        in: query
+        name: end_date
+        type: string
+      - description: 'Period grouping: daily or monthly (default daily)'
+        in: query
+        name: period
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Sales Trend
+      tags:
+      - analytics
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Log in a user and return access and refresh tokens
+      parameters:
+      - description: Login Credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.LoginResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: User Login
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      description: Blacklist the current JWT access token to invalidate the session
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: User Logout
+      tags:
+      - auth
+  /auth/profile:
+    get:
+      description: Get current authenticated user profile details
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.User'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Profile
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Generate a new access token using a valid refresh token
+      parameters:
+      - description: Refresh Token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.RefreshResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: Token Refresh
+      tags:
+      - auth
+  /categories:
+    get:
+      description: Get a list of all product categories
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Category'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get All Categories
+      tags:
+      - product
+    post:
+      consumes:
+      - application/json
+      description: Add a new product category
+      parameters:
+      - description: Category Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Category'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Create Category
+      tags:
+      - product
+  /categories/{id}:
+    delete:
+      description: Delete a product category from the system
+      parameters:
+      - description: Category ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete Category
+      tags:
+      - product
+    put:
+      consumes:
+      - application/json
+      description: Rename an existing product category
+      parameters:
+      - description: Category ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Category Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Category'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update Category
+      tags:
+      - product
+  /customers:
+    get:
+      description: Get a list of all registered customers sorted by name
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Customer'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get All Customers
+      tags:
+      - customer
+    post:
+      consumes:
+      - application/json
+      description: Register a new customer for loyalty spent tracking
+      parameters:
+      - description: Customer Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateCustomerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Customer'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Create Customer
+      tags:
+      - customer
+  /customers/{id}:
+    delete:
+      description: Remove customer profile from the system
+      parameters:
+      - description: Customer UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete Customer
+      tags:
+      - customer
+    get:
+      description: Get total transactions, total spent, and basic details of a customer
+      parameters:
+      - description: Customer UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Customer'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Customer by ID
+      tags:
+      - customer
+    put:
+      consumes:
+      - application/json
+      description: Modify name or phone number of a customer
+      parameters:
+      - description: Customer UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Customer Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateCustomerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Customer'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update Customer
+      tags:
+      - customer
+  /ingredients:
+    get:
+      description: Get a list of all raw ingredients and their current stock levels
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Ingredient'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get All Ingredients
+      tags:
+      - inventory
+    post:
+      consumes:
+      - application/json
+      description: Add a new raw ingredient to inventory catalog
+      parameters:
+      - description: Ingredient Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateIngredientRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Ingredient'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Create Ingredient
+      tags:
+      - inventory
+  /ingredients/{id}:
+    delete:
+      description: Delete an ingredient from system. Cascade clears recipe assignments
+      parameters:
+      - description: Ingredient UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete Ingredient
+      tags:
+      - inventory
+    get:
+      description: Get current stock, unit, and threshold for a single ingredient
+      parameters:
+      - description: Ingredient UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Ingredient'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Ingredient by ID
+      tags:
+      - inventory
+    put:
+      consumes:
+      - application/json
+      description: Update unit, threshold, or base stock values
+      parameters:
+      - description: Ingredient UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Ingredient Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateIngredientRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Ingredient'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update Ingredient
+      tags:
+      - inventory
+  /ingredients/{id}/restock:
+    post:
+      consumes:
+      - application/json
+      description: Increase stock level for an ingredient and write incoming log
+      parameters:
+      - description: Ingredient UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Restock Volume
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RestockRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Ingredient'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Restock Ingredient
+      tags:
+      - inventory
+  /ingredients/movements:
+    get:
+      description: Get a log of all incoming and outgoing stock transactions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.StockMovement'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Stock Movements
+      tags:
+      - inventory
+  /products:
+    get:
+      description: Get a list of all products, optionally filtered by name search,
+        category, or active status
+      parameters:
+      - description: Search products by name
+        in: query
+        name: search
+        type: string
+      - description: Filter products by category ID
+        in: query
+        name: category_id
+        type: integer
+      - description: Filter only active products
+        in: query
+        name: is_active
+        type: boolean
+      - description: Filter only active products (backward compatibility)
+        in: query
+        name: only_active
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Product'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get All Products
+      tags:
+      - product
+    post:
+      consumes:
+      - application/json
+      description: Add a new product to the POS system
+      parameters:
+      - description: Product Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateProductRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Product'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Create Product
+      tags:
+      - product
+  /products/{id}:
+    delete:
+      description: Delete product and clear related recipe assignments
+      parameters:
+      - description: Product UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete Product
+      tags:
+      - product
+    get:
+      description: Get detailed information about a single product
+      parameters:
+      - description: Product UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Product'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Product by ID
+      tags:
+      - product
+    put:
+      consumes:
+      - application/json
+      description: Modify pricing, details or status of a product
+      parameters:
+      - description: Product UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Product Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateProductRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Product'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update Product
+      tags:
+      - product
+  /recipes:
+    get:
+      description: Get list of all Bill of Materials (BOM) mappings
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.RecipeItem'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get All Recipe Items
+      tags:
+      - recipe
+  /recipes/product/{product_id}:
+    get:
+      description: Get a list of raw ingredients and quantities required for a single
+        product
+      parameters:
+      - description: Product UUID
+        in: path
+        name: product_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.RecipeItem'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Product Recipe
+      tags:
+      - recipe
+    post:
+      consumes:
+      - application/json
+      description: Replace all recipe items (BOM mapping) for a product
+      parameters:
+      - description: Product UUID
+        in: path
+        name: product_id
+        required: true
+        type: string
+      - description: Recipe Items List
+        in: body
+        name: request
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/handler.SaveRecipeItemRequest'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Save Product Recipe
+      tags:
+      - recipe
+  /settings:
+    get:
+      description: Get a key-value map of store and system configuration settings
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: string
+                  type: object
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Settings
+      tags:
+      - settings
+    put:
+      consumes:
+      - application/json
+      description: Modify store profile and configuration settings (Owner only)
+      parameters:
+      - description: Settings key-value updates
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update Settings
+      tags:
+      - settings
+  /transactions:
+    get:
+      description: Get a list of all transactions sorted by date
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Transaction'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Transaction History
+      tags:
+      - transaction
+    post:
+      consumes:
+      - application/json
+      description: Check BOM ingredients availability, deduct stock, update loyalty
+        records, and request payment token
+      parameters:
+      - description: Cart Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateTransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.CheckoutResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Create Checkout
+      tags:
+      - transaction
+  /transactions/{id}:
+    get:
+      description: Get detailed invoice summary containing product checkouts
+      parameters:
+      - description: Transaction UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Transaction'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Transaction by ID
+      tags:
+      - transaction
+  /transactions/{id}/cancel:
+    post:
+      description: Void a transaction and increment the stock levels back
+      parameters:
+      - description: Transaction UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Cancel Transaction
+      tags:
+      - transaction
+  /transactions/{id}/send-whatsapp-receipt:
+    post:
+      description: Format transaction receipt and trigger local WhatsApp gateway
+      parameters:
+      - description: Transaction UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Optional Phone Number Override
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/handler.SendWhatsAppReceiptRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Send Receipt via WhatsApp
+      tags:
+      - transaction
+  /transactions/midtrans-webhook:
+    post:
+      consumes:
+      - application/json
+      description: Validate signature key and update transaction status to Paid/Failed
+      parameters:
+      - description: Webhook Payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.MidtransPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: Midtrans Payment Webhook
+      tags:
+      - transaction
+  /users:
+    get:
+      description: Get a list of all user accounts (owner-only)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.User'
+                  type: array
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get All Users
+      tags:
+      - user
+    post:
+      consumes:
+      - application/json
+      description: Create a new cashier, staff, or owner user account with a hashed
+        password
+      parameters:
+      - description: User Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.User'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Create User
+      tags:
+      - user
+  /users/{id}:
+    delete:
+      description: Delete user account from system (owner-only)
+      parameters:
+      - description: User UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete User
+      tags:
+      - user
+    get:
+      description: Get information of a single user account
+      parameters:
+      - description: User UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.User'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Get User by ID
+      tags:
+      - user
+    put:
+      consumes:
+      - application/json
+      description: Update user profile details, roles, or change passwords
+      parameters:
+      - description: User UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.User'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+      security:
+      - BearerAuth: []
+      summary: Update User
+      tags:
+      - user
+securityDefinitions:
+  BearerAuth:
+    description: 'Masukkan token dengan format: Bearer {token}'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
